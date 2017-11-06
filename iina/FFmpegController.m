@@ -41,7 +41,7 @@ return -1;\
 }
 
 - (int)getPeeksForFile:(NSString *)file;
-- (void)saveThumbnail:(AVFrame *)pFrame width:(int)width height:(int)height index:(int)index realTime:(int)second;
+- (void)saveThumbnail:(AVFrame *)pFrame width:(int)width height:(int)height index:(int)index realTime:(int)second forFile:(NSString *)file;
 
 @end
 
@@ -57,6 +57,7 @@ return -1;\
     _thumbnailPartialResult = [[NSMutableArray alloc] init];
     _addedTimestamps = [[NSMutableSet alloc] init];
     _queue = [[NSOperationQueue alloc] init];
+    _queue.maxConcurrentOperationCount = 1;
   }
   return self;
 }
@@ -65,13 +66,21 @@ return -1;\
 - (void)generateThumbnailForFile:(NSString *)file
 {
   [_queue cancelAllOperations];
-  [_queue addOperationWithBlock: ^(){
+  NSBlockOperation *op = [[NSBlockOperation alloc] init];
+  __weak NSBlockOperation *weakOp = op;
+  [op addExecutionBlock:^(){
+    if ([weakOp isCancelled]) {
+      return;
+    }
     _timestamp = CACurrentMediaTime();
     int success = [self getPeeksForFile:file];
     if (self.delegate) {
-      [self.delegate didGeneratedThumbnails:[NSArray arrayWithArray:_thumbnails] succeeded:(success < 0 ? NO : YES)];
+      [self.delegate didGenerateThumbnails:[NSArray arrayWithArray:_thumbnails]
+                                   forFile: file
+                                 succeeded:(success < 0 ? NO : YES)];
     }
   }];
+  [_queue addOperation:op];
 }
 
 
@@ -79,7 +88,7 @@ return -1;\
 {
   int i, ret;
 
-  const char *cFilename = strdup(file.UTF8String);
+  char *cFilename = strdup(file.UTF8String);
   [_thumbnails removeAllObjects];
   [_thumbnailPartialResult removeAllObjects];
   [_addedTimestamps removeAllObjects];
@@ -92,6 +101,7 @@ return -1;\
   // Open video file
   AVFormatContext *pFormatCtx = NULL;
   ret = avformat_open_input(&pFormatCtx, cFilename, NULL, NULL);
+  free(cFilename);
   CHECK_SUCCESS(ret, @"Cannot open video")
 
   // Find stream information
@@ -206,7 +216,7 @@ return -1;\
           double currentTime = CACurrentMediaTime();
           if (currentTime - _timestamp > 1) {
             if (self.delegate) {
-              [self.delegate didUpdatedThumbnails:NULL withProgress: i];
+              [self.delegate didUpdateThumbnails:NULL forFile: file withProgress: i];
               _timestamp = currentTime;
             }
           }
@@ -230,7 +240,8 @@ return -1;\
                       width:pFrameRGB->width
                      height:pFrameRGB->height
                       index:i
-                   realTime:(pFrame->best_effort_timestamp * timebaseDouble)];
+                   realTime:(pFrame->best_effort_timestamp * timebaseDouble)
+                    forFile:file];
         break;
       }
 
@@ -254,19 +265,27 @@ return -1;\
   return 0;
 }
 
-- (void)saveThumbnail:(AVFrame *)pFrame width:(int)width height:(int)height index:(int)index realTime:(int)second
+- (void)saveThumbnail:(AVFrame *)pFrame width:(int)width height:(int)height index:(int)index realTime:(int)second forFile: (NSString *)file
 {
   // Create CGImage
+  CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+  
   CGContextRef cgContext = CGBitmapContextCreate(pFrame->data[0],  // it's converted to RGBA so could be used directly
                                                  width, height,
                                                  8,  // 8 bit per component
                                                  width * 4,  // 4 bytes(rgba) per pixel
-                                                 CGColorSpaceCreateDeviceRGB(),
+                                                 rgb,
                                                  kCGImageAlphaPremultipliedLast);
   CGImageRef cgImage = CGBitmapContextCreateImage(cgContext);
 
   // Create NSImage
   NSImage *image = [[NSImage alloc] initWithCGImage:cgImage size: NSZeroSize];
+  
+  // Free resources
+  CFRelease(rgb);
+  CFRelease(cgContext);
+  CFRelease(cgImage);
+  
   // Add to list
   FFThumbnail *tb = [[FFThumbnail alloc] init];
   tb.image = image;
@@ -278,7 +297,9 @@ return -1;\
   if (currentTime - _timestamp >= 0.2) {  // min notification interval: 0.2s
     if (_thumbnailPartialResult.count >= 10 || (currentTime - _timestamp >= 1 && _thumbnailPartialResult.count > 0)) {
       if (self.delegate) {
-        [self.delegate didUpdatedThumbnails:[NSArray arrayWithArray:_thumbnailPartialResult] withProgress: index];
+        [self.delegate didUpdateThumbnails:[NSArray arrayWithArray:_thumbnailPartialResult]
+                                   forFile: file
+                              withProgress: index];
       }
       [_thumbnailPartialResult removeAllObjects];
       _timestamp = currentTime;

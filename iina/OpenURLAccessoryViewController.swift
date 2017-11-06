@@ -31,8 +31,7 @@ class OpenURLAccessoryViewController: NSViewController {
       if URL(string: urlValue)?.host == nil {
         urlValue = "http://" + urlValue
       }
-      let nsurl = NSURL(string: urlValue)!
-      guard let urlComponents = NSURLComponents(url: nsurl.standardized!, resolvingAgainstBaseURL: false) else { return nil }
+      guard let nsurl = NSURL(string: urlValue)?.standardized, let urlComponents = NSURLComponents(url: nsurl, resolvingAgainstBaseURL: false) else { return nil }
       if !username.isEmpty {
         urlComponents.user = username
         if !password.isEmpty {
@@ -47,16 +46,16 @@ class OpenURLAccessoryViewController: NSViewController {
     super.viewDidLoad()
 
     [safariLinkBtn, chromeLinkBtn].forEach {
-      $0!.image = NSImage(named: NSImageNameFollowLinkFreestandingTemplate)
+      $0!.image = NSImage(named: .followLinkFreestandingTemplate)
     }
   }
     
   @IBAction func safariLinkBtnAction(_ sender: AnyObject) {
-    NSWorkspace.shared().open(URL(string: safariExtensionLink)!)
+    NSWorkspace.shared.open(URL(string: safariExtensionLink)!)
   }
 
   @IBAction func chromeLinkBtnAction(_ sender: AnyObject) {
-    NSWorkspace.shared().open(URL(string: chromeExtensionLink)!)
+    NSWorkspace.shared.open(URL(string: chromeExtensionLink)!)
   }
 
 }
