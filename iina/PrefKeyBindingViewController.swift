@@ -32,7 +32,12 @@ class PrefKeyBindingViewController: NSViewController, MASPreferencesViewControll
   static let defaultConfigs: [String: String] = [
     "IINA Default": Bundle.main.path(forResource: "iina-default-input", ofType: "conf", inDirectory: "config")!,
     "MPV Default": Bundle.main.path(forResource: "input", ofType: "conf", inDirectory: "config")!,
+<<<<<<< HEAD
     "VLC Default": Bundle.main.path(forResource: "vlc-default-input", ofType: "conf", inDirectory: "config")!
+=======
+    "VLC Default": Bundle.main.path(forResource: "vlc-default-input", ofType: "conf", inDirectory: "config")!,
+    "Movist Default": Bundle.main.path(forResource: "movist-default-input", ofType: "conf", inDirectory: "config")!
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   ]
 
   var userConfigs: [String: Any]!
@@ -131,7 +136,11 @@ class PrefKeyBindingViewController: NSViewController, MASPreferencesViewControll
     showKeyBindingPanel { key, action in
       guard !key.isEmpty && !action.isEmpty else { return }
       if action.hasPrefix("@iina") {
+<<<<<<< HEAD
         let trimmedAction = action[action.index(action.startIndex, offsetBy: "@iina".characters.count)...].trimmingCharacters(in: .whitespaces)
+=======
+        let trimmedAction = action[action.index(action.startIndex, offsetBy: "@iina".count)...].trimmingCharacters(in: .whitespaces)
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
         currentMapping.append(KeyMapping(key: key,
                                          rawAction: trimmedAction,
                                          isIINACommand: true))

@@ -72,11 +72,14 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
 
   /** The control view for interactive mode. */
   var cropSettingsView: CropBoxViewController?
+<<<<<<< HEAD
 
   /** The current/remaining time label in Touch Bar. */
   lazy var sizingTouchBarTextField: NSTextField = {
     return NSTextField()
   }()
+=======
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
   private lazy var magnificationGestureRecognizer: NSMagnificationGestureRecognizer = {
     return NSMagnificationGestureRecognizer(target: self, action: #selector(MainWindowController.handleMagnifyGesture(recognizer:)))
@@ -99,8 +102,6 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
   /** For mpv's `geometry` option. We cache the parsed structure
    so never need to parse it every time. */
   var cachedGeometry: PlayerCore.GeometryDef?
-
-  var touchBarPosLabelWidthLayout: NSLayoutConstraint?
 
   var mousePosRelatedToWindow: CGPoint?
   var isDragging: Bool = false
@@ -349,9 +350,9 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
 
   @IBOutlet weak var pipOverlayView: NSVisualEffectView!
 
-  weak var touchBarPlaySlider: TouchBarPlaySlider?
-  weak var touchBarPlayPauseBtn: NSButton?
-  weak var touchBarCurrentPosLabel: DurationDisplayTextField?
+  var videoViewConstraints: [NSLayoutConstraint.Attribute: NSLayoutConstraint] = [:]
+
+  // MARK: - PIP
 
   var videoViewConstraints: [NSLayoutConstraint.Attribute: NSLayoutConstraint] = [:]
 
@@ -584,6 +585,13 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
     case PK.verticalScrollAction.rawValue:
       if let newValue = change[.newKey] as? Int {
         verticalScrollAction = Preference.ScrollAction(rawValue: newValue)!
+<<<<<<< HEAD
+      }
+
+    case PK.horizontalScrollAction.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        horizontalScrollAction = Preference.ScrollAction(rawValue: newValue)!
+=======
       }
 
     case PK.horizontalScrollAction.rawValue:
@@ -594,8 +602,15 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
     case PK.arrowButtonAction.rawValue:
       if let newValue = change[.newKey] as? Int {
         arrowBtnFunction = Preference.ArrowButtonAction(rawValue: newValue)!
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       }
 
+    case PK.arrowButtonAction.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        arrowBtnFunction = Preference.ArrowButtonAction(rawValue: newValue)!
+      }
+
+<<<<<<< HEAD
     case PK.arrowButtonAction.rawValue:
       if let newValue = change[.newKey] as? Int {
         arrowBtnFunction = Preference.ArrowButtonAction(rawValue: newValue)!
@@ -616,10 +631,29 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
         pinchAction = Preference.PinchAction(rawValue: newValue)!
       }
 
+=======
+    case PK.singleClickAction.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        singleClickAction = Preference.MouseClickAction(rawValue: newValue)!
+      }
+
+    case PK.doubleClickAction.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        doubleClickAction = Preference.MouseClickAction(rawValue: newValue)!
+      }
+
+    case PK.pinchAction.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        pinchAction = Preference.PinchAction(rawValue: newValue)!
+      }
+
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     case PK.showRemainingTime.rawValue:
       if let newValue = change[.newKey] as? Bool {
         rightLabel.mode = newValue ? .remaining : .duration
-        touchBarCurrentPosLabel?.mode = newValue ? .remaining : .current
+        if #available(OSX 10.12.2, *) {
+          player.touchBarSupport.touchBarCurrentPosLabel?.mode = newValue ? .remaining : .current
+        }
       }
     
     case PK.blackOutMonitor.rawValue:
@@ -647,6 +681,12 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
     case PK.maxVolume.rawValue:
       if let newValue = change[.newKey] as? Int {
         volumeSlider.maxValue = Double(newValue)
+<<<<<<< HEAD
+=======
+        if self.player.mpv.getDouble(MPVOption.Audio.volume) > Double(newValue) {
+          self.player.mpv.setDouble(MPVOption.Audio.volume, Double(newValue))
+        }
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       }
 
     default:
@@ -1621,6 +1661,7 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
 
   private func addBackTitlebarViewToFadeableViews() {
     fadeableViews.append(titleBarView)
+<<<<<<< HEAD
   }
 
   // Sometimes the doc icon may not be available, eg. when opened an online video.
@@ -1631,6 +1672,18 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
     }
   }
 
+=======
+  }
+
+  // Sometimes the doc icon may not be available, eg. when opened an online video.
+  // We should try to add it everytime when window title changed.
+  private func addDocIconToFadeableViews() {
+    if let docIcon = window?.standardWindowButton(.documentIconButton), !fadeableViews.contains(docIcon) {
+      fadeableViews.append(docIcon)
+    }
+  }
+
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   // MARK: - UI: Interactive mode
 
   func enterInteractiveMode(_ mode: InteractiveMode, selectWholeVideoByDefault: Bool = false) {
@@ -1874,7 +1927,7 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
       if let strw = geometry.w, strw != "0" {
         let w: CGFloat
         if strw.hasSuffix("%") {
-          w = CGFloat(Double(String(strw.characters.dropLast()))! * 0.01 * Double(screenFrame.width))
+          w = CGFloat(Double(String(strw.dropLast()))! * 0.01 * Double(screenFrame.width))
         } else {
           w = CGFloat(Int(strw)!)
         }
@@ -1884,7 +1937,7 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
       } else if let strh = geometry.h, strh != "0" {
         let h: CGFloat
         if strh.hasSuffix("%") {
-          h = CGFloat(Double(String(strh.characters.dropLast()))! * 0.01 * Double(screenFrame.height))
+          h = CGFloat(Double(String(strh.dropLast()))! * 0.01 * Double(screenFrame.height))
         } else {
           h = CGFloat(Int(strh)!)
         }
@@ -1896,7 +1949,7 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
       if let strx = geometry.x, let xSign = geometry.xSign {
         let x: CGFloat
         if strx.hasSuffix("%") {
-          x = CGFloat(Double(String(strx.characters.dropLast()))! * 0.01 * Double(screenFrame.width)) - winFrame.width / 2
+          x = CGFloat(Double(String(strx.dropLast()))! * 0.01 * Double(screenFrame.width)) - winFrame.width / 2
         } else {
           x = CGFloat(Int(strx)!)
         }
@@ -1910,7 +1963,7 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
       if let stry = geometry.y, let ySign = geometry.ySign {
         let y: CGFloat
         if stry.hasSuffix("%") {
-          y = CGFloat(Double(String(stry.characters.dropLast()))! * 0.01 * Double(screenFrame.height)) - winFrame.height / 2
+          y = CGFloat(Double(String(stry.dropLast()))! * 0.01 * Double(screenFrame.height)) - winFrame.height / 2
         } else {
           y = CGFloat(Int(stry)!)
         }
@@ -2145,11 +2198,15 @@ class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     let percentage = (pos.second / duration.second) * 100
     leftLabel.stringValue = pos.stringRepresentation
-    touchBarCurrentPosLabel?.updateText(with: duration, given: pos)
+    if #available(OSX 10.12.2, *) {
+      player.touchBarSupport.touchBarCurrentPosLabel?.updateText(with: duration, given: pos)
+    }
     rightLabel.updateText(with: duration, given: pos)
     if andProgressBar {
       playSlider.doubleValue = percentage
-      touchBarPlaySlider?.setDoubleValueSafely(percentage)
+      if #available(OSX 10.12.2, *) {
+        player.touchBarSupport.touchBarPlaySlider?.setDoubleValueSafely(percentage)
+      }
     }
   }
 

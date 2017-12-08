@@ -23,7 +23,11 @@ class ISO639_2Helper {
   static let languages: [Language] = {
     var result: [Language] = []
     for (k, v) in dictionary {
+<<<<<<< HEAD
       let names = v.characters.split(separator: ";").map { String($0) }
+=======
+      let names = v.split(separator: ";").map { String($0) }
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       result.append(Language(code: k, name: names))
     }
     return result

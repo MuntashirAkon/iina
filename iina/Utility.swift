@@ -308,6 +308,13 @@ class Utility {
 
   // MARK: - App functions
 
+  static func iinaVersion() -> (String, String) {
+    let infoDic = Bundle.main.infoDictionary!
+    let version = infoDic["CFBundleShortVersionString"] as! String
+    let build = infoDic["CFBundleVersion"] as! String
+    return (version, build)
+  }
+
   static func setSelfAsDefaultForAllFileTypes() {
     guard
     let docTypes = Bundle.main.infoDictionary?["CFBundleDocumentTypes"] as? [[String: Any]],
@@ -527,7 +534,7 @@ class Utility {
 
   struct ShortCodeGenerator {
 
-    private static let base62chars = [Character]("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".characters)
+    private static let base62chars = [Character]("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
     private static let maxBase : UInt32 = 62
 
     static func getCode(withBase base: UInt32 = maxBase, length: Int) -> String {

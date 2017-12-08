@@ -15,6 +15,7 @@ fileprivate let OpenFileRepeatTime = TimeInterval(0.2)
 fileprivate let NormalMenuItemTag = 0
 /** Tags for "Open File/URL in New Window" when "Always open URL" when "Open file in new windows" is off. Vice versa. */
 fileprivate let AlternativeMenuItemTag = 1
+<<<<<<< HEAD
 
 
 @NSApplicationMain
@@ -37,6 +38,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // Windows
 
+=======
+
+
+@NSApplicationMain
+class AppDelegate: NSObject, NSApplicationDelegate {
+
+  /** Whether performed some basic initialization, like bind menu items. */
+  var isReady = false
+  /** 
+   Becomes true once `application(_:openFile:)` or `droppedText()` is called.
+   Mainly used to distinguish normal launches from others triggered by drag-and-dropping files.
+   */
+  var openFileCalled = false
+  var shouldIgnoreOpenFile = false
+  /** Cached URL when launching from URL scheme. */
+  var pendingURL: String?
+
+  /** Cached file paths received in `application(_:openFile:)`. */
+  private var pendingFilesForOpenFile: [String] = []
+  /** The timer for `OpenFileRepeatTime` and `application(_:openFile:)`. */
+  private var openFileTimer: Timer?
+
+  private var commandLineStatus = CommandLineStatus()
+
+  // Windows
+
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   lazy var aboutWindow: AboutWindowController = AboutWindowController()
   lazy var fontPicker: FontPickerWindowController = FontPickerWindowController()
   lazy var inspector: InspectorWindowController = InspectorWindowController()
@@ -77,6 +105,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationWillFinishLaunching(_ notification: Notification) {
     // register for url event
     NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(self.handleURLEvent(event:withReplyEvent:)), forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+
+    // handle arguments
+    let arguments = ProcessInfo.processInfo.arguments.dropFirst()
+    guard arguments.count > 0 else { return }
+
+    var iinaArgs: [String] = []
+    var iinaArgFilenames: [String] = []
+    var dropNextArg = false
+
+    for arg in arguments {
+      if dropNextArg {
+        dropNextArg = false
+        continue
+      }
+      if arg.first == "-" {
+        if arg[arg.index(after: arg.startIndex)] == "-" {
+          // args starting with --
+          iinaArgs.append(arg)
+        } else {
+          // args starting with -
+          dropNextArg = true
+        }
+      } else {
+        // assume args starting with nothing is a filename
+        iinaArgFilenames.append(arg)
+      }
+    }
+
+    commandLineStatus.parseArguments(iinaArgs)
+
+    let (version, build) = Utility.iinaVersion()
+    print("IINA \(version) Build \(build)")
+
+    guard !iinaArgFilenames.isEmpty || commandLineStatus.isStdin else {
+      print("This binary is not intended for being used as a command line tool. Please use the bundled iina-cli.")
+      print("Please ignore this message if you are running in a debug environment.")
+      return
+    }
+
+    shouldIgnoreOpenFile = true
+    commandLineStatus.isCommandLine = true
+    commandLineStatus.filenames = iinaArgFilenames
   }
 
   func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -100,8 +170,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       parsePendingURL(url)
     }
 
+<<<<<<< HEAD
     // check whether showing the welcome window after 0.1s
     Timer.scheduledTimer(timeInterval: TimeInterval(0.1), target: self, selector: #selector(self.checkForShowingInitialWindow), userInfo: nil, repeats: false)
+=======
+    let _ = PlayerCore.first
+
+    if !commandLineStatus.isCommandLine {
+      // check whether showing the welcome window after 0.1s
+      Timer.scheduledTimer(timeInterval: TimeInterval(0.1), target: self, selector: #selector(self.checkForShowingInitialWindow), userInfo: nil, repeats: false)
+    } else {
+      let getNewPlayerCore = { () -> PlayerCore in
+        let pc = PlayerCore.newPlayerCore
+        self.commandLineStatus.assignMPVArguments(to: pc)
+        return pc
+      }
+      if commandLineStatus.isStdin {
+        getNewPlayerCore().openURLString("-")
+      } else {
+        let validFileURLs: [URL] = commandLineStatus.filenames.flatMap { filename in
+          if Regex.url.matches(filename) {
+            return URL(string: filename)
+          } else {
+            return FileManager.default.fileExists(atPath: filename) ? URL(fileURLWithPath: filename) : nil
+          }
+        }
+        if commandLineStatus.openSeparateWindows {
+          validFileURLs.forEach { url in
+            let _ = getNewPlayerCore().openURLs([url])
+          }
+        } else {
+          let _ = getNewPlayerCore().openURLs(validFileURLs)
+        }
+      }
+    }
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
     NSApplication.shared.servicesProvider = self
   }
@@ -115,7 +218,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func showWelcomeWindow() {
+<<<<<<< HEAD
     let _ = PlayerCore.first
+=======
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     let actionRawValue = Preference.integer(for: .actionAfterLaunch)
     let action: Preference.ActionAfterLaunch = Preference.ActionAfterLaunch(rawValue: actionRawValue) ?? .welcomeWindow
     switch action {
@@ -126,14 +232,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     default:
       break
     }
-  }
-
-  func applicationWillTerminate(_ aNotification: Notification) {
-    // Insert code here to tear down your application
-  }
-
-  func applicationDidResignActive(_ notification: Notification) {
-
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -175,8 +273,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       menuController.bindMenuItems()
       isReady = true
     }
+<<<<<<< HEAD
     // open pending files
     let urls = pendingFilesForOpenFile.map { URL(fileURLWithPath: $0) }
+=======
+    // if launched from command line, should ignore openFile once
+    if shouldIgnoreOpenFile {
+      shouldIgnoreOpenFile = false
+      return
+    }
+    // open pending files
+    let urls = pendingFilesForOpenFile.map { URL(fileURLWithPath: $0) }
+
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     pendingFilesForOpenFile.removeAll()
     if let openedFileCount = PlayerCore.activeOrNew.openURLs(urls), openedFileCount == 0 {
       Utility.showAlert("nothing_to_open")
@@ -185,6 +294,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // MARK: - Accept dropped string and URL
 
+  @objc
   func droppedText(_ pboard: NSPasteboard, userData:String, error: NSErrorPointer) {
     if let url = pboard.string(forType: .string) {
       openFileCalled = true
@@ -316,4 +426,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     Utility.setSelfAsDefaultForAllFileTypes()
   }
 
+}
+
+
+struct CommandLineStatus {
+  var isCommandLine = false
+  var isStdin = false
+  var openSeparateWindows = false
+  var mpvArguments: [(String, String)] = []
+  var iinaArguments: [(String, String)] = []
+  var filenames: [String] = []
+
+  mutating func parseArguments(_ args: [String]) {
+    mpvArguments.removeAll()
+    iinaArguments.removeAll()
+    for arg in args {
+      let splitted = arg.dropFirst(2).split(separator: "=", maxSplits: 2)
+      let name = String(splitted[0])
+      if (name.hasPrefix("mpv-")) {
+        // mpv args
+        if splitted.count <= 1 {
+          mpvArguments.append((String(name.dropFirst(4)), "yes"))
+        } else {
+          mpvArguments.append((String(name.dropFirst(4)), String(splitted[1])))
+        }
+      } else {
+        // other args
+        if splitted.count <= 1 {
+          iinaArguments.append((name, "yes"))
+        } else {
+          iinaArguments.append((name, String(splitted[1])))
+        }
+        if name == "stdin" {
+          isStdin = true
+        }
+        if name == "separate-windows" {
+          openSeparateWindows = true
+        }
+      }
+    }
+  }
+
+  func assignMPVArguments(to playerCore: PlayerCore) {
+    for arg in mpvArguments {
+      playerCore.mpv.setString(arg.0, arg.1)
+    }
+  }
 }

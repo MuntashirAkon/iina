@@ -48,6 +48,7 @@ class PlaylistViewController: NSViewController, NSTableViewDataSource, NSTableVi
   @IBOutlet weak var chaptersBtn: NSButton!
   @IBOutlet weak var tabView: NSTabView!
   @IBOutlet weak var buttonTopConstraint: NSLayoutConstraint!
+  @IBOutlet weak var tabHeightConstraint: NSLayoutConstraint!
   @IBOutlet weak var deleteBtn: NSButton!
   @IBOutlet weak var loopBtn: NSButton!
   @IBOutlet weak var shuffleBtn: NSButton!
@@ -56,6 +57,12 @@ class PlaylistViewController: NSViewController, NSTableViewDataSource, NSTableVi
   var downShift: CGFloat = 0 {
     didSet {
       buttonTopConstraint.constant = downShift
+    }
+  }
+
+  var useCompactTabHeight = false {
+    didSet {
+      tabHeightConstraint.constant = useCompactTabHeight ? 32 : 48
     }
   }
 
@@ -349,12 +356,16 @@ class PlaylistViewController: NSViewController, NSTableViewDataSource, NSTableVi
         let filenameWithoutExt: String = NSString(string: filename).deletingPathExtension
         if let prefix = player.info.currentVideosInfo.first(where: { $0.path == item.filename })?.prefix,
           !prefix.isEmpty,
-          prefix.characters.count <= filenameWithoutExt.characters.count,  // check whether prefix length > filename length
-          prefix.characters.count >= PrefixMinLength,
-          filename.characters.count > FilenameMinLength {
+          prefix.count <= filenameWithoutExt.count,  // check whether prefix length > filename length
+          prefix.count >= PrefixMinLength,
+          filename.count > FilenameMinLength {
           cellView.prefixBtn.hasPrefix = true
           cellView.prefixBtn.text = prefix
+<<<<<<< HEAD
           cellView.textField?.stringValue = String(filename[filename.index(filename.startIndex, offsetBy: prefix.characters.count)...])
+=======
+          cellView.textField?.stringValue = String(filename[filename.index(filename.startIndex, offsetBy: prefix.count)...])
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
         } else {
           cellView.prefixBtn.hasPrefix = false
           cellView.textField?.stringValue = filename

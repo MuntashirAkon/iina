@@ -57,7 +57,11 @@ extension PlayerCore {
   }
 
   /**
+<<<<<<< HEAD
    Checks whether the path list contains playable file and performs early return if so.
+=======
+   Checks whether the path list contains playable file and performs early return if so. Don't use this method for a non-file URL.
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
    
    - Parameters:
      - paths: The list as an array of `String`.
@@ -87,7 +91,11 @@ extension PlayerCore {
   }
 
   /**
+<<<<<<< HEAD
    Returns playable files contained in a URL list.
+=======
+   Returns playable files contained in a URL list. Any non-file URL will be counted directly without further checking.
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
    - Parameters:
      - urls: The list as an array of `URL`.
@@ -96,6 +104,13 @@ extension PlayerCore {
   func getPlayableFiles(in urls: [URL]) -> [URL] {
     var playableFiles: [URL] = []
     for url in urls {
+<<<<<<< HEAD
+=======
+      if !url.isFileURL {
+        playableFiles.append(url)
+        continue
+      }
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       if url.representsDirectory {
         // is directory
         // `enumerator(at:includingPropertiesForKeys:)` doesn't work :(
@@ -113,7 +128,18 @@ extension PlayerCore {
         }
       }
     }
+<<<<<<< HEAD
     return playableFiles
+=======
+    return Array(Set(playableFiles)).sorted { url1, url2 in
+      let folder1 = url1.deletingLastPathComponent(), folder2 = url2.deletingLastPathComponent()
+      if folder1.absoluteString == folder2.absoluteString {
+        return url1.lastPathComponent.localizedStandardCompare(url2.lastPathComponent) == .orderedAscending
+      } else {
+        return folder1.absoluteString < folder2.absoluteString
+      }
+    }
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   }
 
   /**
@@ -179,7 +205,11 @@ extension PlayerCore {
       guard let droppedString = pb.string(forType: .string) else {
         return []
       }
+<<<<<<< HEAD
       return Regex.urlDetect.matches(droppedString) ? .copy : []
+=======
+      return Regex.url.matches(droppedString) || Regex.filePath.matches(droppedString) ? .copy : []
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     }
     return []
   }
@@ -231,7 +261,11 @@ extension PlayerCore {
       guard let droppedString = pb.string(forType: .string) else {
         return false
       }
+<<<<<<< HEAD
       if Regex.urlDetect.matches(droppedString) {
+=======
+      if Regex.url.matches(droppedString) || Regex.filePath.matches(droppedString) {
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
         openURLString(droppedString)
         return true
       } else {

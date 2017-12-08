@@ -26,8 +26,13 @@ class FileInfo: Hashable {
 
   var prefix: String {  // prefix detected by FileGroup
     didSet {
+<<<<<<< HEAD
       if prefix.characters.count < self.characters.count {
         suffix = String(filename[filename.index(filename.startIndex, offsetBy: prefix.characters.count)...])
+=======
+      if prefix.count < self.characters.count {
+        suffix = String(filename[filename.index(filename.startIndex, offsetBy: prefix.count)...])
+>>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
         getNameInSeries()
       } else {
         prefix = ""
@@ -42,7 +47,7 @@ class FileInfo: Hashable {
     self.path = url.path
     self.ext = url.pathExtension
     self.filename = url.deletingPathExtension().lastPathComponent
-    self.characters = [Character](self.filename.characters)
+    self.characters = [Character](self.filename)
     self.prefix = ""
     self.suffix = self.filename
   }
@@ -100,7 +105,7 @@ class FileGroup {
 
     var tempGroup: [String: [FileInfo]] = [:]
     var currChars: [(Character, String)] = []
-    var i = prefix.characters.count
+    var i = prefix.count
 
     while tempGroup.count < 2 {
       var lastPrefix = ""
