@@ -50,7 +50,7 @@
 "9pa-9C-ueQ.title" = "<없음>";
 
 /* Class = "NSMenuItem"; title = "Save Downloaded Subtitle"; ObjectID = "9zk-co-roT"; */
-"9zk-co-roT.title" = "다운로드한 자막 저장";
+"9zk-co-roT.title" = "다운로드된 자막 저장";
 
 /* Class = "NSMenu"; title = "Subtitle"; ObjectID = "16p-PA-x34"; */
 "16p-PA-x34.title" = "자막";
@@ -382,3 +382,70 @@
 "bGN-E4-V5A.title" = "미니 플레이어";
 
 "ArE-2s-JIV.title" = "로고 제거";
+
+"BDr-G9-IRx.title" = "저장된 비디오 필터";
+
+"wgZ-DO-nn3.title" = "저장된 오디오 필터";
+
+"5Gn-90-oDu.title" = "재생속도 원래대로";
+
+"91n-xW-L37.title" = "빠르게 재생 1.1배";
+
+"8pV-XQ-AvB.title" = "재생속도:";
+
+"vuV-uP-CAD.title" = "저장된 오디오 필터";
+
+"lew-3S-oGY.title" = "오디오 지연 + 0.1초";
+
+"n8f-ub-Udb.title" = "오디오 트랙 변경";
+
+"5Gn-90-oDu.title" = "재생속도 원래대로";
+
+"xhY-fF-oio.title" = "저장된 비디오 필터";
+
+"oqG-7L-NLD.title" = "이전 파일";
+
+"DUP-nm-BJt.title" = "느리게 재생 0.9배";
+
+"GR6-4V-lRT.title" = "다음 파일";
+
+"fyL-tr-6Bu.title" = "자막 지연 - 0.1초";
+
+"Lqa-OG-EEg.title" = "빠르게 재생 2배";
+
+"taT-mP-2Kv.title" = "비디오 트랙 변경";
+
+"0Cz-OE-85L.title" = "자막 지연 + 0.1초";
+
+"F6G-Ln-fqI.title" = "다음 챕터";
+
+"pqF-SZ-Ifz.title" = "이전 챕터";
+
+"HsE-LN-Nd6.title" = "느리게 재생 0.5배";
+
+"sgu-dK-IGE.title" = "자막 변경";
+
+"9ee-7i-xs7.title" = "오디오 지연 - 0.1초";
+
+"w8n-XJ-Pgi.title" = "편집";
+"pWh-nh-0pN.title" = "편집";
+
+"XPz-ml-OQ3.title" = "실행 취소";
+"VDZ-ro-z5z.title" = "실행 복귀";
+
+"2aU-bk-bmu.title" = "오려두기";
+"tH0-KL-c9V.title" = "복사하기";
+"NdF-0z-k5s.title" = "붙여넣기";
+"h9w-Rj-Hm1.title" = "삭제";
+"3Ax-P3-QQu.title" = "전체 선택";
+
+"dBM-BU-5xS.title" = "변환";
+"7Bn-Mp-EvJ.title" = "변환";
+"m7w-hc-Y2F.title" = "대문자로 만들기";
+"zez-g5-2Pt.title" = "소문자로 만들기";
+"Tue-O7-cei.title" = "대문자로 문장 시작";
+
+"8Oy-tP-udW.title" = "말하기";
+"uO1-9S-6Yy.title" = "말하기";
+"zpw-Ac-F3M.title" = "말하기 시작";
+"7rG-Yq-EYG.title" = "말하기 중단";

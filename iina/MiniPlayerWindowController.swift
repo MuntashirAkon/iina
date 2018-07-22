@@ -8,30 +8,65 @@
 
 import Cocoa
 
+fileprivate typealias PK = Preference.Key
+
 fileprivate let DefaultPlaylistHeight: CGFloat = 300
-<<<<<<< HEAD
-fileprivate let AutoHidePlaylistThreshold: CGFloat = 72 + 200
-=======
 fileprivate let AutoHidePlaylistThreshold: CGFloat = 200
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 fileprivate let AnimationDurationShowControl: TimeInterval = 0.2
 
-class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
+class MiniPlayerWindowController: NSWindowController, NSWindowDelegate, NSPopoverDelegate {
 
   override var windowNibName: NSNib.Name {
     return NSNib.Name("MiniPlayerWindowController")
   }
 
+  @objc let monospacedFont: NSFont = {
+    let fontSize = NSFont.systemFontSize(for: .mini)
+    return NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .regular)
+  }()
+
   unowned var player: PlayerCore
 
   var menuActionHandler: MainMenuActionHandler!
 
-<<<<<<< HEAD
-  @IBOutlet var volumePopover: NSPopover!
-  @IBOutlet weak var backgroundView: NSVisualEffectView!
-  @IBOutlet weak var closeButton: NSButton!
-  @IBOutlet weak var playlistWrapperView: NSView!
-=======
+  // MARK: - Observed user defaults
+
+  private let observedPrefKeys: [Preference.Key] = [
+    .showRemainingTime,
+    .alwaysFloatOnTop,
+    .maxVolume
+  ]
+
+  override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+
+    guard let keyPath = keyPath, let change = change else { return }
+
+    switch keyPath {
+
+    case PK.showRemainingTime.rawValue:
+      if let newValue = change[.newKey] as? Bool {
+        rightLabel.mode = newValue ? .remaining : .duration
+      }
+
+    case PK.alwaysFloatOnTop.rawValue:
+      if let newValue = change[.newKey] as? Bool {
+        self.isOntop = newValue
+        setWindowFloatingOnTop(newValue)
+      }
+
+    case PK.maxVolume.rawValue:
+      if let newValue = change[.newKey] as? Int {
+        volumeSlider.maxValue = Double(newValue)
+        if player.mpv.getDouble(MPVOption.Audio.volume) > Double(newValue) {
+          player.mpv.setDouble(MPVOption.Audio.volume, Double(newValue))
+        }
+      }
+
+    default:
+      return
+    }
+  }
+
   @IBOutlet weak var muteButton: NSButton!
   @IBOutlet weak var volumeButton: NSButton!
   @IBOutlet var volumePopover: NSPopover!
@@ -47,7 +82,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
   @IBOutlet var videoWrapperViewBottomConstraint: NSLayoutConstraint!
   @IBOutlet var controlViewTopConstraint: NSLayoutConstraint!
   @IBOutlet weak var playlistWrapperView: NSVisualEffectView!
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   @IBOutlet weak var mediaInfoView: NSView!
   @IBOutlet weak var controlView: NSView!
   @IBOutlet weak var titleLabel: NSTextField!
@@ -59,11 +93,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
   @IBOutlet weak var playSlider: NSSlider!
   @IBOutlet weak var volumeSlider: NSSlider!
   @IBOutlet weak var volumeLabel: NSTextField!
-<<<<<<< HEAD
-
-  var isOntop = false
-  var isPlaylistVisible = false
-=======
   @IBOutlet weak var defaultAlbumArt: NSView!
 
   var isOntop = false
@@ -72,7 +101,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
 
   var videoViewAspectConstraint: NSLayoutConstraint?
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   private var originalWindowFrame: NSRect!
 
   init(player: PlayerCore) {
@@ -94,18 +122,9 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     window.nextResponder = menuActionHandler
     menuActionHandler.nextResponder = responder
 
-<<<<<<< HEAD
-    window.isMovableByWindowBackground = true
-    if #available(OSX 10.11, *) {
-      (window.contentView as? NSVisualEffectView)?.material = .ultraDark
-    } else {
-      (window.contentView as? NSVisualEffectView)?.material = .dark
-    }
-=======
     window.initialFirstResponder = nil
     window.styleMask = [.fullSizeContentView, .titled, .resizable, .closable]
     window.isMovableByWindowBackground = true
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     window.appearance = NSAppearance(named: .vibrantDark)
     window.titlebarAppearsTransparent = true
     window.titleVisibility = .hidden
@@ -113,29 +132,14 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
       window.standardWindowButton($0)?.isHidden = true
     }
 
-<<<<<<< HEAD
-    window.setFrame(window.frame.rectWithoutPlaylistHeight(), display: false, animate: false)
-=======
     setToInitialWindowSize(display: false, animate: false)
     
     controlViewTopConstraint.isActive = false
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
     // tracking area
     let trackingView = NSView()
     trackingView.translatesAutoresizingMaskIntoConstraints = false
     window.contentView?.addSubview(trackingView, positioned: .above, relativeTo: nil)
-<<<<<<< HEAD
-    Utility.quickConstraints(["H:|[v]|", "V:|[v(==72)]"], ["v": trackingView])
-    trackingView.addTrackingArea(NSTrackingArea(rect: trackingView.bounds, options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited], owner: self, userInfo: nil))
-
-    backgroundView.state = .active
-
-    // close button
-    closeButton.image = NSImage(named: .stopProgressFreestandingTemplate)
-    closeButton.image?.isTemplate = true
-    closeButton.action = #selector(self.close)
-=======
     Utility.quickConstraints(["H:|[v]|"], ["v": trackingView])
     NSLayoutConstraint.activate([
       NSLayoutConstraint(item: trackingView, attribute: .bottom, relatedBy: .equal, toItem: backgroundView, attribute: .bottom, multiplier: 1, constant: 0),
@@ -145,11 +149,7 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
 
     backgroundView.state = .active
     [backgroundView, playlistWrapperView].forEach { view in
-      if #available(OSX 10.11, *) {
-        view?.material = .ultraDark
-      } else {
-        view?.material = .dark
-      }
+      view?.material = .ultraDark
     }
 
     // default album art
@@ -163,45 +163,48 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     closeButtonView.alphaValue = 0
     closeButtonBackgroundViewVE.layer?.cornerRadius = 8
     closeButtonBackgroundViewBox.isHidden = true
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
     // switching UI
     controlView.alphaValue = 0
 
     // notifications
-    NotificationCenter.default.addObserver(self, selector: #selector(updateTrack), name: Constants.Noti.fileLoaded, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(updateTrack), name: .iinaMediaTitleChanged, object: player)
 
     updateVolume()
+    updatePlayButtonState(player.info.isPaused ? .off : .on)
+    rightLabel.mode = Preference.bool(for: .showRemainingTime) ? .remaining : .duration
+
+    if Preference.bool(for: .alwaysFloatOnTop) {
+      setWindowFloatingOnTop(true)
+    }
+    volumeSlider.maxValue = Double(Preference.integer(for: .maxVolume))
+    volumePopover.delegate = self
+
+    // add use default observers
+    observedPrefKeys.forEach { key in
+      UserDefaults.standard.addObserver(self, forKeyPath: key.rawValue, options: .new, context: nil)
+    }
+  }
+
+  deinit {
+    ObjcUtils.silenced {
+      for key in self.observedPrefKeys {
+        UserDefaults.standard.removeObserver(self, forKeyPath: key.rawValue)
+      }
+    }
   }
 
   func windowWillClose(_ notification: Notification) {
-<<<<<<< HEAD
-    player.switchBackFromMiniPlayer()
-=======
     player.switchedToMiniPlayerManually = false
     player.switchedBackFromMiniPlayerManually = false
     player.switchBackFromMiniPlayer(automatically: true, showMainWindow: false)
     player.mainWindow.close()
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   }
 
   func windowWillStartLiveResize(_ notification: Notification) {
     originalWindowFrame = window!.frame
   }
 
-<<<<<<< HEAD
-  override func mouseDown(with event: NSEvent) {
-    if volumePopover.isShown {
-      volumePopover.performClose(self)
-    } else {
-      super.mouseDown(with: event)
-    }
-  }
-
-  override func mouseEntered(with event: NSEvent) {
-    NSAnimationContext.runAnimationGroup({ context in
-      context.duration = AnimationDurationShowControl
-=======
   override func keyDown(with event: NSEvent) {
     let keyCode = KeyCodeHelper.mpvKeyCode(from: event)
     if let kb = PlayerCore.keyBindings[keyCode] {
@@ -210,10 +213,10 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
         if let iinaCommand = IINACommand(rawValue: kb.rawAction) {
           handleIINACommand(iinaCommand)
         } else {
-          Utility.log("Unknown iina command \(kb.rawAction)")
+          Logger.log("Unknown iina command \(kb.rawAction)", level: .error)
         }
       } else {
-        // - MPV command
+        // - mpv command
         let returnValue: Int32
         // execute the command
         switch kb.action[0] {
@@ -225,7 +228,7 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
         }
         // handle return value
         if returnValue != 0 {
-          Utility.log("Return value \(returnValue) when executing key command \(kb.rawAction)")
+          Logger.log("Return value \(returnValue) when executing key command \(kb.rawAction)", level: .warning)
         }
       }
     } else {
@@ -238,42 +241,35 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     super.mouseDown(with: event)
   }
 
-  override func mouseEntered(with event: NSEvent) {
+  private func showControl() {
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = AnimationDurationShowControl
       closeButtonView.animator().alphaValue = 1
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       controlView.animator().alphaValue = 1
       mediaInfoView.animator().alphaValue = 0
     }, completionHandler: {})
   }
 
-  override func mouseExited(with event: NSEvent) {
+  private func hideControl() {
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = AnimationDurationShowControl
-<<<<<<< HEAD
-=======
       closeButtonView.animator().alphaValue = 0
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       controlView.animator().alphaValue = 0
       mediaInfoView.animator().alphaValue = 1
     }, completionHandler: {})
   }
 
+  override func mouseEntered(with event: NSEvent) {
+    showControl()
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    guard !volumePopover.isShown else { return }
+    hideControl()
+  }
+
   func windowDidEndLiveResize(_ notification: Notification) {
     guard let window = window else { return }
-<<<<<<< HEAD
-    if isPlaylistVisible {
-      // hide
-      if window.frame.height < AutoHidePlaylistThreshold {
-        isPlaylistVisible = false
-        window.setFrame(window.frame.rectWithoutPlaylistHeight(), display: true, animate: true)
-      }
-    } else {
-      // show
-      if window.frame.height < AutoHidePlaylistThreshold {
-        window.setFrame(window.frame.rectWithoutPlaylistHeight(), display: true, animate: true)
-=======
     let windowHeight = normalWindowHeight()
     if isPlaylistVisible {
       // hide
@@ -285,21 +281,25 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
       // show
       if window.frame.height < windowHeight + AutoHidePlaylistThreshold {
         setToInitialWindowSize()
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       } else {
         isPlaylistVisible = true
       }
     }
   }
 
-<<<<<<< HEAD
-=======
   func windowDidResize(_ notification: Notification) {
     guard let window = window, !window.inLiveResize else { return }
     self.player.mainWindow.videoView.videoLayer.draw()
   }
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
+  // MARK: - NSPopoverDelegate
+
+  func popoverWillClose(_ notification: Notification) {
+    if NSWindow.windowNumber(at: NSEvent.mouseLocation, belowWindowWithWindowNumber: 0) != window!.windowNumber {
+      hideControl()
+    }
+  }
+
   // MARK: - Sync UI with playback
 
   func updatePlayButtonState(_ state: NSControl.StateValue) {
@@ -310,23 +310,46 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
   func updatePlayTime(withDuration: Bool, andProgressBar: Bool) {
     guard isWindowLoaded else { return }
     guard let duration = player.info.videoDuration, let pos = player.info.videoPosition else {
-      Utility.fatal("video info not available")
+      Logger.fatal("video info not available")
     }
     let percentage = (pos.second / duration.second) * 100
     leftLabel.stringValue = pos.stringRepresentation
     rightLabel.updateText(with: duration, given: pos)
     if andProgressBar {
       playSlider.doubleValue = percentage
+      if #available(macOS 10.12.2, *) {
+        player.touchBarSupport.touchBarPlaySlider?.setDoubleValueSafely(percentage)
+        player.touchBarSupport.touchBarPosLabels.forEach { $0.updateText(with: duration, given: pos) }
+      }
+    }
+  }
+
+  @objc
+  func updateTrack() {
+    DispatchQueue.main.async {
+      let (mediaTitle, mediaAlbum, mediaArtist) = self.player.getMusicMetadata()
+      self.titleLabel.stringValue = mediaTitle
+      self.window?.title = mediaTitle
+      // hide artist & album label when info not available
+      if mediaArtist.isEmpty && mediaAlbum.isEmpty {
+        self.titleLabelTopConstraint.constant = 6 + 10
+        self.artistAlbumLabel.stringValue = ""
+      } else {
+        self.titleLabelTopConstraint.constant = 6
+        if mediaArtist.isEmpty || mediaAlbum.isEmpty {
+          self.artistAlbumLabel.stringValue = "\(mediaArtist)\(mediaAlbum)"
+        } else {
+          self.artistAlbumLabel.stringValue = "\(mediaArtist) - \(mediaAlbum)"
+        }
+      }
     }
   }
 
   func updateVolume() {
     guard isWindowLoaded else { return }
     volumeSlider.doubleValue = player.info.volume
-    volumeLabel.intValue = Int32(Int(player.info.volume))
-<<<<<<< HEAD
-=======
-    volumeButton.title = "\(Int(player.info.volume))"
+    volumeLabel.intValue = Int32(player.info.volume)
+    muteButton.state = player.info.isMuted ? .on : .off
   }
 
   func updateVideoSize() {
@@ -337,8 +360,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     let currentHeight = videoView.frame.height
     let newHeight = videoView.frame.width / aspect
     updateVideoViewAspectConstraint(withAspect: aspect)
-    // default album art
-    defaultAlbumArt.isHidden = !player.info.videoTracks.isEmpty
     // resize window
     var frame = window.frame
     frame.size.height += newHeight - currentHeight - 0.5
@@ -358,7 +379,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
   func setToInitialWindowSize(display: Bool = true, animate: Bool = true) {
     guard let window = window else { return }
     window.setFrame(window.frame.rectWithoutPlaylistHeight(providedWindowHeight: normalWindowHeight()), display: display, animate: animate)
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   }
 
   // MARK: - IBAction
@@ -368,19 +388,12 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     if isPlaylistVisible {
       // hide
       isPlaylistVisible = false
-<<<<<<< HEAD
-      window.setFrame(window.frame.rectWithoutPlaylistHeight(), display: true, animate: true)
-    } else {
-      // show
-      isPlaylistVisible = true
-=======
       setToInitialWindowSize()
     } else {
       // show
       isPlaylistVisible = true
       player.mainWindow.playlistView.reloadData(playlist: true, chapters: true)
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
       var newFrame = window.frame
       newFrame.origin.y -= DefaultPlaylistHeight
       newFrame.size.height += DefaultPlaylistHeight
@@ -388,8 +401,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     }
   }
 
-<<<<<<< HEAD
-=======
   @IBAction func toogleVideoView(_ sender: Any) {
     guard let window = window else { return }
     isVideoVisible = !isVideoVisible
@@ -409,20 +420,15 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     }
   }
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   @IBAction func volumeSliderChanges(_ sender: NSSlider) {
-    let value = sender.doubleValue
-    player.setVolume(value)
+    player.mainWindow.volumeSliderChanges(sender)
   }
 
-<<<<<<< HEAD
-=======
   @IBAction func backBtnAction(_ sender: NSButton) {
     window?.orderOut(self)
     player.switchBackFromMiniPlayer(automatically: false)
   }
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   @IBAction func playBtnAction(_ sender: NSButton) {
     if player.info.isPaused {
       player.togglePause(false)
@@ -432,11 +438,11 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
   }
 
   @IBAction func nextBtnAction(_ sender: NSButton) {
-    player.navigateInPlaylist(nextOrPrev: true)
+    player.navigateInPlaylist(nextMedia: true)
   }
 
   @IBAction func prevBtnAction(_ sender: NSButton) {
-    player.navigateInPlaylist(nextOrPrev: false)
+    player.navigateInPlaylist(nextMedia: false)
   }
 
   @IBAction func volumeBtnAction(_ sender: NSButton) {
@@ -447,13 +453,10 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
     }
   }
 
-<<<<<<< HEAD
-=======
   @IBAction func muteBtnAction(_ sender: NSButton) {
     player.toogleMute()
   }
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   @IBAction func playSliderChanges(_ sender: NSSlider) {
     let percentage = 100 * sender.doubleValue / sender.maxValue
     player.seek(percent: percentage, forceExact: true)
@@ -470,36 +473,6 @@ class MiniPlayerWindowController: NSWindowController, NSWindowDelegate {
       window.level = .normal
     }
   }
-
-  @objc
-  func updateTrack() {
-    DispatchQueue.main.async {
-      let (mediaTitle, mediaArtist, mediaAlbum) = self.player.getMusicMetadata()
-      self.titleLabel.stringValue = mediaTitle
-      self.window?.title = mediaTitle
-      // hide artist & album label when info not available
-      if mediaArtist.isEmpty && mediaAlbum.isEmpty {
-        self.titleLabelTopConstraint.constant = 6 + 10
-        self.artistAlbumLabel.stringValue = ""
-      } else {
-        self.titleLabelTopConstraint.constant = 6
-        if mediaArtist.isEmpty || mediaAlbum.isEmpty {
-          self.artistAlbumLabel.stringValue = "\(mediaArtist)\(mediaAlbum)"
-        } else {
-          self.artistAlbumLabel.stringValue = "\(mediaArtist) - \(mediaAlbum)"
-        }
-      }
-    }
-  }
-<<<<<<< HEAD
-}
-
-fileprivate extension NSRect {
-  func rectWithoutPlaylistHeight() -> NSRect {
-    var newRect = self
-    newRect.origin.y += (newRect.height - 72)
-    newRect.size.height = 72
-=======
   
   private func normalWindowHeight() -> CGFloat {
     return 72 + (isVideoVisible ? videoWrapperView.frame.height : 0)
@@ -512,6 +485,8 @@ fileprivate extension NSRect {
       appDeletate.openFile(self)
     case .openURL:
       appDeletate.openURL(self)
+    case .toggleMusicMode:
+      self.menuSwitchToMiniPlayer(.dummy)
     case .flip:
       self.menuActionHandler.menuToggleFlip(.dummy)
     case .mirror:
@@ -536,7 +511,6 @@ fileprivate extension NSRect {
     var newRect = self
     newRect.origin.y += (newRect.height - windowHeight)
     newRect.size.height = windowHeight
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     return newRect
   }
 }

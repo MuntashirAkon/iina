@@ -79,8 +79,8 @@ class InspectorWindowController: NSWindowController, NSTableViewDelegate, NSTabl
 
     updateTimer = Timer.scheduledTimer(timeInterval: TimeInterval(1), target: self, selector: #selector(dynamicUpdate), userInfo: nil, repeats: true)
 
-    NotificationCenter.default.addObserver(self, selector: #selector(fileLoaded), name: Constants.Noti.fileLoaded, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(fileLoaded), name: Constants.Noti.mainWindowChanged, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(fileLoaded), name: .iinaFileLoaded, object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(fileLoaded), name: .iinaMainWindowChanged, object: nil)
   }
 
   deinit {
@@ -139,18 +139,25 @@ class InspectorWindowController: NSWindowController, NSTableViewDelegate, NSTabl
         // track list
 
         self.trackPopup.removeAllItems()
+        var needSeparator = false
         for track in info.videoTracks {
           self.trackPopup.menu?.addItem(withTitle: "Video" + track.readableTitle,
                                    action: nil, tag: nil, obj: track, stateOn: false)
+          needSeparator = true
         }
-        self.trackPopup.menu?.addItem(NSMenuItem.separator())
+        if needSeparator && !info.audioTracks.isEmpty {
+          self.trackPopup.menu?.addItem(NSMenuItem.separator())
+        }
         for track in info.audioTracks {
           self.trackPopup.menu?.addItem(withTitle: "Audio" + track.readableTitle,
                                    action: nil, tag: nil, obj: track, stateOn: false)
+          needSeparator = true
         }
-        self.trackPopup.menu?.addItem(NSMenuItem.separator())
+        if needSeparator && !info.subTracks.isEmpty {
+          self.trackPopup.menu?.addItem(NSMenuItem.separator())
+        }
         for track in info.subTracks {
-          self.trackPopup.menu?.addItem(withTitle: "Sub" + track.readableTitle,
+          self.trackPopup.menu?.addItem(withTitle: "Subtitle" + track.readableTitle,
                                    action: nil, tag: nil, obj: track, stateOn: false)
         }
         self.trackPopup.selectItem(at: 0)
@@ -201,15 +208,15 @@ class InspectorWindowController: NSWindowController, NSTableViewDelegate, NSTabl
     setLabelColor(trackExternalField, by: track.isExternal)
 
     let strProperties: [(String?, NSTextField)] = [
-      (track.srcId?.toStr(), trackSourceIdField),
+      (track.srcId?.description, trackSourceIdField),
       (track.title, trackTitleField),
       (track.lang, trackLangField),
       (track.externalFilename, trackFilePathField),
       (track.codec, trackCodecField),
       (track.decoderDesc, trackDecoderField),
-      (track.demuxFps?.toStr(), trackFPSField),
+      (track.demuxFps?.description, trackFPSField),
       (track.demuxChannels, trackChannelsField),
-      (track.demuxSamplerate?.toStr(), trackSampleRateField)
+      (track.demuxSamplerate?.description, trackSampleRateField)
     ]
 
     for (str, field) in strProperties {
@@ -227,7 +234,7 @@ class InspectorWindowController: NSWindowController, NSTableViewDelegate, NSTabl
   func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
     guard let identifier = tableColumn?.identifier else { return nil }
 
-    guard let property = watchProperties.at(row) else { return nil }
+    guard let property = watchProperties[at: row] else { return nil }
     if identifier == .key {
       return property
     } else if identifier == .value {

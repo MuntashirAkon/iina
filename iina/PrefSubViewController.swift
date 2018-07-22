@@ -10,25 +10,29 @@ import Cocoa
 import PromiseKit
 
 @objcMembers
-class PrefSubViewController: NSViewController {
+class PrefSubViewController: PreferenceViewController, PreferenceWindowEmbeddable {
 
   override var nibName: NSNib.Name {
     return NSNib.Name("PrefSubViewController")
   }
 
-  var viewIdentifier: String = "PrefSubViewController"
-
-  var toolbarItemImage: NSImage {
-    return NSImage(named: .fontPanel)!
-  }
-
-  var toolbarItemLabel: String {
-    view.layoutSubtreeIfNeeded()
+  var preferenceTabTitle: String {
     return NSLocalizedString("preference.subtitle", comment: "Subtitles")
   }
 
-  var hasResizableWidth: Bool = false
-  var hasResizableHeight: Bool = false
+  override var sectionViews: [NSView] {
+    return [sectionAutoLoadView, sectionASSView, sectionTextSubView, sectionPositionView, sectionOnlineSubView, sectionOtherView]
+  }
+
+  @IBOutlet var sectionAutoLoadView: NSView!
+  @IBOutlet var sectionASSView: NSView!
+  @IBOutlet var sectionTextSubView: NSView!
+  @IBOutlet var sectionPositionView: NSView!
+  @IBOutlet var sectionOnlineSubView: NSView!
+  @IBOutlet var sectionOtherView: NSView!
+
+  @IBOutlet weak var subSourceStackView: NSStackView!
+  @IBOutlet weak var subSourcePopUpButton: NSPopUpButton!
 
   @IBOutlet weak var subLangTokenView: NSTokenField!
   @IBOutlet weak var loginIndicator: NSProgressIndicator!
@@ -51,6 +55,8 @@ class PrefSubViewController: NSViewController {
 
     subLangTokenView.delegate = self
     loginIndicator.isHidden = true
+
+    refreshOnlineSubSource()
   }
 
   @IBAction func chooseSubFontAction(_ sender: AnyObject) {
@@ -70,14 +76,14 @@ class PrefSubViewController: NSViewController {
         loginIndicator.startAnimation(nil)
         firstly {
           OpenSubSupport().login(testUser: username, password: password)
-        }.then { (_) -> Void in
+        }.map { _ in
           let status = OpenSubSupport.savePassword(username: username, passwd: password)
           if status == errSecSuccess {
             Preference.set(username, for: .openSubUsername)
           } else {
             Utility.showAlert("sub.cannot_save_passwd", arguments: [SecCopyErrorMessageString(status, nil) as! CVarArg])
           }
-        }.always {
+        }.ensure {
           self.loginIndicator.isHidden = true
           self.loginIndicator.stopAnimation(nil)
         }.catch { err in
@@ -105,8 +111,24 @@ class PrefSubViewController: NSViewController {
     PlayerCore.active.reloadAllSubs()
   }
   
-  @IBAction func OpenSubHelpBtnAction(_ sender: AnyObject) {
+  @IBAction func openSubHelpBtnAction(_ sender: AnyObject) {
     NSWorkspace.shared.open(URL(string: AppData.wikiLink.appending("/Download-Online-Subtitles#opensubtitles"))!)
+  }
+
+  @IBAction func assrtHelpBtnAction(_ sender: AnyObject) {
+    NSWorkspace.shared.open(URL(string: AppData.wikiLink.appending("/Download-Online-Subtitles#assrt"))!)
+  }
+
+  @IBAction func onlineSubSourceAction(_ sender: NSPopUpButton) {
+    refreshOnlineSubSource()
+  }
+
+  private func refreshOnlineSubSource() {
+    let tag = subSourcePopUpButton.selectedTag()
+    for (index, view) in subSourceStackView.views.enumerated() {
+      if index == 0 { continue }
+      subSourceStackView.setVisibilityPriority(index == tag ? .mustHold : .notVisible, for: view)
+    }
   }
 }
 
@@ -123,14 +145,14 @@ extension PrefSubViewController: NSTokenFieldDelegate {
 
   func tokenField(_ tokenField: NSTokenField, completionsForSubstring substring: String, indexOfToken tokenIndex: Int, indexOfSelectedItem selectedIndex: UnsafeMutablePointer<Int>?) -> [Any]? {
     let lowSubString = substring.lowercased()
-    let matches = ISO639_2Helper.languages.filter { lang in
+    let matches = ISO639Helper.languages.filter { lang in
       return lang.name.reduce(false) { $1.lowercased().hasPrefix(lowSubString) || $0 }
     }
     return matches.map { $0.description }
   }
 
   func tokenField(_ tokenField: NSTokenField, representedObjectForEditing editingString: String) -> Any? {
-    if let code = Regex.iso639_2Desc.captures(in: editingString).at(1) {
+    if let code = Regex.iso639_2Desc.captures(in: editingString)[at: 1] {
       return SubLangToken(code)
     } else {
       return SubLangToken(editingString)

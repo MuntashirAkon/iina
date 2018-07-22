@@ -1,4 +1,4 @@
-#/usr/bin/swift
+#!/usr/bin/xcrun swift
 
 import Cocoa
 
@@ -7,7 +7,7 @@ class Regex {
   var regex: NSRegularExpression?
 
   init (_ pattern: String) {
-    if let exp = try? NSRegularExpression(pattern: pattern, options: []) {
+    if let exp = try? NSRegularExpression(pattern: pattern) {
       self.regex = exp
     } else {
       print("Cannot create regex \(pattern)")
@@ -15,21 +15,21 @@ class Regex {
   }
 
   func matches(_ str: String) -> Bool {
-    if let matches = regex?.numberOfMatches(in: str, options: [], range: NSMakeRange(0, str.characters.count)) {
+    if let matches = regex?.numberOfMatches(in: str, range: NSRange(str.startIndex ..< str.endIndex, in: str)) {
       return matches > 0
     } else {
       return false
     }
   }
 
-  func captures(in str: String) -> [String] {
-    var result: [String] = []
-    if let matches = regex?.matches(in: str, options: [], range: NSMakeRange(0, str.characters.count)) {
+  func captures(in str: String) -> [Substring] {
+    var result: [Substring] = []
+    if let matches = regex?.matches(in: str, range: NSRange(str.startIndex ..< str.endIndex, in: str)) {
       matches.forEach { match in
         for i in 0..<match.numberOfRanges {
           let range = match.range(at: i)
-          if range.length > 0 {
-            result.append((str as NSString).substring(with: match.range(at: i)))
+          if range.length > 0, let swiftRange = Range(range, in: str) {
+            result.append(str[swiftRange])
           } else {
             result.append("")
           }
@@ -44,11 +44,7 @@ class Regex {
 let ignorePlaceHolderTitle = true
 let checkRedundantKey = false
 
-<<<<<<< HEAD
-let languages = ["de", "fr", "it", "ja", "ko", "pl", "zh-Hans", "zh-Hant", "ru", "tr", "es", "uk", "nl"]
-=======
-let languages = ["de", "fr", "it", "ja", "ko", "pl", "zh-Hans", "zh-Hant", "ru", "tr", "es", "uk", "nl", "sk"]
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
+let languages = ["de", "fr", "it", "ja", "ko", "pl", "zh-Hans", "zh-Hant", "ru", "tr", "es", "uk", "nl", "sk", "da"]
 var testLanguages: [String] = []
 
 let ignoredStrings = ["Label", "Multiline Label", "Text Cell", "Box", "Table View Cell", "Title", "Item", "Context Menu", "0:00:00", "00:00 AM", "9:99:99", "999:99"]
@@ -105,7 +101,7 @@ enum BaseLang {
   }
 }
 
-func sameArray(_ a: [String], _ b: [String]) -> Bool {
+func sameArray(_ a: [Substring], _ b: [Substring]) -> Bool {
   guard a.count == b.count else { return false }
   for i in 0..<a.count {
     guard a[i] == b[i] else { return false }

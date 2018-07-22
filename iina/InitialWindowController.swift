@@ -11,6 +11,7 @@ import Cocoa
 fileprivate extension NSUserInterfaceItemIdentifier {
   static let openFile = NSUserInterfaceItemIdentifier("openFile")
   static let openURL = NSUserInterfaceItemIdentifier("openURL")
+  static let resumeLast = NSUserInterfaceItemIdentifier("resumeLast")
 }
 
 class InitialWindowController: NSWindowController {
@@ -27,8 +28,17 @@ class InitialWindowController: NSWindowController {
   @IBOutlet weak var versionLabel: NSTextField!
   @IBOutlet weak var visualEffectView: NSVisualEffectView!
   @IBOutlet weak var mainView: NSView!
+  @IBOutlet weak var betaIndicatorView: BetaIndicatorView!
+  @IBOutlet weak var lastFileContainerView: InitialWindowViewActionButton!
+  @IBOutlet weak var lastFileIcon: NSImageView!
+  @IBOutlet weak var lastFileNameLabel: NSTextField!
+  @IBOutlet weak var lastPositionLabel: NSTextField!
+  @IBOutlet weak var recentFilesTableTopConstraint: NSLayoutConstraint!
 
-  lazy var recentDocuments: [URL] = NSDocumentController.shared.recentDocumentURLs
+  lazy var recentDocuments: [URL] = {
+    NSDocumentController.shared.recentDocumentURLs.filter { $0 != lastPlaybackURL }
+  }()
+  private var lastPlaybackURL: URL?
 
   init(playerCore: PlayerCore) {
     self.player = playerCore
@@ -51,17 +61,46 @@ class InitialWindowController: NSWindowController {
     mainView.layer?.backgroundColor = CGColor(gray: 0.1, alpha: 1)
     appIcon.image = NSApp.applicationIconImage
 
-    let infoDic = Bundle.main.infoDictionary!
-    let version = infoDic["CFBundleShortVersionString"] as! String
-    let build = infoDic["CFBundleVersion"] as! String
-    versionLabel.stringValue = "\(version) Build \(build)"
+    let (version, build) = Utility.iinaVersion()
+    let isStableRelease = !version.contains("-")
+    versionLabel.stringValue = isStableRelease ? version : "\(version) (\(build))"
+    betaIndicatorView.isHidden = isStableRelease
+
+    loadLastPlaybackInfo()
 
     recentFilesTableView.delegate = self
     recentFilesTableView.dataSource = self
 
-    if #available(OSX 10.11, *) {
-      visualEffectView.material = .ultraDark
+    visualEffectView.material = .ultraDark
+  }
+
+  func loadLastPlaybackInfo() {
+    if Preference.bool(for: .recordRecentFiles),
+      Preference.bool(for: .resumeLastPosition),
+      let lastFile = Preference.url(for: .iinaLastPlayedFilePath),
+      FileManager.default.fileExists(atPath: lastFile.path) {
+      // if last file exists
+      lastPlaybackURL = lastFile
+      lastFileContainerView.isHidden = false
+      lastFileContainerView.normalBackground = CGColor(gray: 1, alpha: 0.1)
+      lastFileContainerView.hoverBackground = CGColor(gray: 0.5, alpha: 0.1)
+      lastFileContainerView.pressedBackground = CGColor(gray: 0, alpha: 0.1)
+      lastFileIcon.image = #imageLiteral(resourceName: "history").tinted(.white)
+      lastFileNameLabel.stringValue = lastFile.lastPathComponent
+      let lastPosition = Preference.double(for: .iinaLastPlayedFilePosition)
+      lastPositionLabel.stringValue = VideoTime(lastPosition).stringRepresentation
+      recentFilesTableTopConstraint.constant = 42
+    } else {
+      lastPlaybackURL = nil
+      lastFileContainerView.isHidden = true
+      recentFilesTableTopConstraint.constant = 24
     }
+  }
+
+  func reloadData() {
+    loadLastPlaybackInfo()
+    recentDocuments = NSDocumentController.shared.recentDocumentURLs.filter { $0 != lastPlaybackURL }
+    recentFilesTableView.reloadData()
   }
 }
 
@@ -81,12 +120,8 @@ extension InitialWindowController: NSTableViewDelegate, NSTableViewDataSource {
   }
 
   func tableViewSelectionDidChange(_ notification: Notification) {
-    guard let url = recentDocuments.at(recentFilesTableView.selectedRow) else { return }
-    if url.isExistingDirectory {
-      let _ = player.openURLs([url])
-    } else {
-      player.openURL(url, shouldAutoLoad: true)
-    }
+    guard let url = recentDocuments[at: recentFilesTableView.selectedRow] else { return }
+    player.openURL(url)
     recentFilesTableView.deselectAll(nil)
   }
 
@@ -112,15 +147,20 @@ class InitialWindowContentView: NSView {
 
 class InitialWindowViewActionButton: NSView {
 
-  private let normalBackground = CGColor(gray: 0, alpha: 0)
-  private let hoverBackground = CGColor(gray: 0, alpha: 0.25)
-  private let pressedBackground = CGColor(gray: 0, alpha: 0.35)
+  var normalBackground = CGColor(gray: 0, alpha: 0) {
+    didSet {
+      self.layer?.backgroundColor = normalBackground
+    }
+  }
+  var hoverBackground = CGColor(gray: 0, alpha: 0.25)
+  var pressedBackground = CGColor(gray: 0, alpha: 0.35)
 
   var action: Selector?
 
   override func awakeFromNib() {
     self.wantsLayer = true
     self.layer?.cornerRadius = 4
+    self.layer?.backgroundColor = normalBackground
     self.addTrackingArea(NSTrackingArea(rect: self.bounds, options: [.activeInKeyWindow, .mouseEnteredAndExited], owner: self, userInfo: nil))
   }
 
@@ -136,8 +176,13 @@ class InitialWindowViewActionButton: NSView {
     self.layer?.backgroundColor = pressedBackground
     if self.identifier == .openFile {
       (NSApp.delegate as! AppDelegate).openFile(self)
-    } else {
+    } else if self.identifier == .openURL {
       (NSApp.delegate as! AppDelegate).openURL(self)
+    } else {
+      if let lastFile = Preference.url(for: .iinaLastPlayedFilePath),
+        let windowController = window?.windowController as? InitialWindowController {
+        windowController.player.openURL(lastFile)
+      }
     }
   }
 
@@ -145,4 +190,38 @@ class InitialWindowViewActionButton: NSView {
     self.layer?.backgroundColor = hoverBackground
   }
   
+}
+
+
+class BetaIndicatorView: NSView {
+
+  @IBOutlet var betaPopover: NSPopover!
+  @IBOutlet var text1: NSTextField!
+  @IBOutlet var text2: NSTextField!
+
+  override func awakeFromNib() {
+    self.layer?.backgroundColor = CGColor(red: 1, green: 0.6, blue: 0.2, alpha: 1)
+    self.layer?.cornerRadius = 4
+    self.addTrackingArea(NSTrackingArea(rect: self.bounds, options: [.activeInKeyWindow, .mouseEnteredAndExited], owner: self, userInfo: nil))
+
+    text1.setHTMLValue(text1.stringValue)
+    text2.setHTMLValue(text2.stringValue)
+  }
+
+  override func mouseEntered(with event: NSEvent) {
+    NSCursor.pointingHand.push()
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    NSCursor.pop()
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    if betaPopover.isShown {
+      betaPopover.close()
+    } else {
+      betaPopover.show(relativeTo: self.bounds, of: self, preferredEdge: .maxX)
+    }
+  }
+
 }

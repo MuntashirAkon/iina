@@ -8,7 +8,7 @@
 
 import Cocoa
 import MediaPlayer
-import MASPreferences
+import Sparkle
 
 /** Max time interval for repeated `application(_:openFile:)` calls. */
 fileprivate let OpenFileRepeatTime = TimeInterval(0.2)
@@ -16,30 +16,6 @@ fileprivate let OpenFileRepeatTime = TimeInterval(0.2)
 fileprivate let NormalMenuItemTag = 0
 /** Tags for "Open File/URL in New Window" when "Always open URL" when "Open file in new windows" is off. Vice versa. */
 fileprivate let AlternativeMenuItemTag = 1
-<<<<<<< HEAD
-
-
-@NSApplicationMain
-class AppDelegate: NSObject, NSApplicationDelegate {
-
-  /** Whether performed some basic initialization, like bind menu items. */
-  var isReady = false
-  /** 
-   Becomes true once `application(_:openFile:)` or `droppedText()` is called.
-   Mainly used to distinguish normal launches from others triggered by drag-and-dropping files.
-   */
-  var openFileCalled = false
-  /** Cached URL when launching from URL scheme. */
-  var pendingURL: String?
-
-  /** Cached file paths received in `application(_:openFile:)`. */
-  private var pendingFilesForOpenFile: [String] = []
-  /** The timer for `OpenFileRepeatTime` and `application(_:openFile:)`. */
-  private var openFileTimer: Timer?
-
-  // Windows
-
-=======
 
 
 @NSApplicationMain
@@ -65,11 +41,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   // Windows
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
   lazy var aboutWindow: AboutWindowController = AboutWindowController()
   lazy var fontPicker: FontPickerWindowController = FontPickerWindowController()
   lazy var inspector: InspectorWindowController = InspectorWindowController()
-  lazy var subSelectWindow: SubSelectWindowController = SubSelectWindowController()
   lazy var historyWindow: HistoryWindowController = HistoryWindowController()
 
   lazy var vfWindow: FilterWindowController = {
@@ -85,7 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }()
 
   lazy var preferenceWindowController: NSWindowController = {
-    return MASPreferencesWindowController(viewControllers: [
+    return PreferenceWindowController(viewControllers: [
       PrefGeneralViewController(),
       PrefUIViewController(),
       PrefCodecViewController(),
@@ -94,18 +68,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       PrefControlViewController(),
       PrefKeyBindingViewController(),
       PrefAdvancedViewController(),
-    ], title: NSLocalizedString("preference.title", comment: "Preference"))
+      PrefUtilsViewController(),
+    ])
   }()
 
   @IBOutlet weak var menuController: MenuController!
 
   @IBOutlet weak var dockMenu: NSMenu!
 
+  private func getReady() {
+    registerUserDefaultValues()
+    menuController.bindMenuItems()
+    PlayerCore.loadKeyBindings()
+    isReady = true
+  }
+
   // MARK: - App Delegate
 
   func applicationWillFinishLaunching(_ notification: Notification) {
+    Logger.log("App will launch")
+
     // register for url event
     NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(self.handleURLEvent(event:withReplyEvent:)), forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+
+    // beta channel
+    if FirstRunManager.isFirstRun(for: .joinBetaChannel) {
+      let result = Utility.quickAskPanel("beta_channel")
+      Preference.set(result, for: .receiveBetaUpdate)
+    }
+    SUUpdater.shared().feedURL = URL(string: Preference.bool(for: .receiveBetaUpdate) ? AppData.appcastBetaLink : AppData.appcastLink)!
 
     // handle arguments
     let arguments = ProcessInfo.processInfo.arguments.dropFirst()
@@ -115,6 +106,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var iinaArgFilenames: [String] = []
     var dropNextArg = false
 
+    Logger.log("Got arguments \(arguments)")
     for arg in arguments {
       if dropNextArg {
         dropNextArg = false
@@ -134,6 +126,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
 
+    Logger.log("IINA arguments: \(iinaArgs)")
+    Logger.log("Filenames from arguments: \(iinaArgFilenames)")
     commandLineStatus.parseArguments(iinaArgs)
 
     let (version, build) = Utility.iinaVersion()
@@ -151,10 +145,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ aNotification: Notification) {
+    Logger.log("App launched")
+
     if !isReady {
-      UserDefaults.standard.register(defaults: Preference.defaultPreference)
-      menuController.bindMenuItems()
-      isReady = true
+      getReady()
     }
 
     // show alpha in color panels
@@ -168,6 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     if #available(macOS 10.13, *) {
       if RemoteCommandController.useSystemMediaControl {
+        Logger.log("Setting up MediaPlayer integration")
         RemoteCommandController.setup()
         NowPlayingInfoManager.updateState(.playing)
       }
@@ -178,10 +173,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       parsePendingURL(url)
     }
 
-<<<<<<< HEAD
-    // check whether showing the welcome window after 0.1s
-    Timer.scheduledTimer(timeInterval: TimeInterval(0.1), target: self, selector: #selector(self.checkForShowingInitialWindow), userInfo: nil, repeats: false)
-=======
     let _ = PlayerCore.first
 
     if !commandLineStatus.isCommandLine {
@@ -196,7 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       if commandLineStatus.isStdin {
         getNewPlayerCore().openURLString("-")
       } else {
-        let validFileURLs: [URL] = commandLineStatus.filenames.flatMap { filename in
+        let validFileURLs: [URL] = commandLineStatus.filenames.compactMap { filename in
           if Regex.url.matches(filename) {
             return URL(string: filename)
           } else {
@@ -205,14 +196,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if commandLineStatus.openSeparateWindows {
           validFileURLs.forEach { url in
-            let _ = getNewPlayerCore().openURLs([url])
+            getNewPlayerCore().openURL(url)
           }
         } else {
-          let _ = getNewPlayerCore().openURLs(validFileURLs)
+          getNewPlayerCore().openURLs(validFileURLs)
         }
       }
     }
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
 
     NSApplication.shared.servicesProvider = self
   }
@@ -225,16 +215,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  private func showWelcomeWindow() {
-<<<<<<< HEAD
-    let _ = PlayerCore.first
-=======
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
+  private func showWelcomeWindow(checkingForUpdatedData: Bool = false) {
     let actionRawValue = Preference.integer(for: .actionAfterLaunch)
     let action: Preference.ActionAfterLaunch = Preference.ActionAfterLaunch(rawValue: actionRawValue) ?? .welcomeWindow
     switch action {
     case .welcomeWindow:
-      PlayerCore.first.initialWindow.showWindow(nil)
+      let window = PlayerCore.first.initialWindow!
+      window.showWindow(nil)
+      if checkingForUpdatedData {
+        window.loadLastPlaybackInfo()
+        window.reloadData()
+      }
     case .openPanel:
       openFile(self)
     default:
@@ -248,6 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    Logger.log("App should terminate")
     for pc in PlayerCore.playerCores {
      pc.terminateMPV()
     }
@@ -256,9 +248,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
     guard !flag else { return true }
-    showWelcomeWindow()
-
+    Logger.log("Handle reopen")
+    showWelcomeWindow(checkingForUpdatedData: true)
     return true
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    Logger.log("App will terminate")
+    Logger.closeLogFile()
   }
 
   /**
@@ -277,14 +274,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   @objc
   func handleOpenFile() {
     if !isReady {
-      UserDefaults.standard.register(defaults: Preference.defaultPreference)
-      menuController.bindMenuItems()
-      isReady = true
+      getReady()
     }
-<<<<<<< HEAD
-    // open pending files
-    let urls = pendingFilesForOpenFile.map { URL(fileURLWithPath: $0) }
-=======
     // if launched from command line, should ignore openFile once
     if shouldIgnoreOpenFile {
       shouldIgnoreOpenFile = false
@@ -293,9 +284,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // open pending files
     let urls = pendingFilesForOpenFile.map { URL(fileURLWithPath: $0) }
 
->>>>>>> 1e0d53bcb18d44657769470d924da8559eef7574
     pendingFilesForOpenFile.removeAll()
-    if let openedFileCount = PlayerCore.activeOrNew.openURLs(urls), openedFileCount == 0 {
+    if PlayerCore.activeOrNew.openURLs(urls) == 0 {
       Utility.showAlert("nothing_to_open")
     }
   }
@@ -322,6 +312,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   @objc func handleURLEvent(event: NSAppleEventDescriptor, withReplyEvent replyEvent: NSAppleEventDescriptor) {
     openFileCalled = true
     guard let url = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue else { return }
+    Logger.log("URL event: \(url)")
     if isReady {
       parsePendingURL(url)
     } else {
@@ -330,10 +321,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func parsePendingURL(_ url: String) {
-    guard let parsed = NSURLComponents(string: url) else { return }
+    Logger.log("Parsing URL \(url)")
+    guard let parsed = URLComponents(string: url) else {
+      Logger.log("Cannot parse URL using URLComponents", level: .warning)
+      return
+    }
     // links
     if let host = parsed.host, host == "weblink" {
-      guard let urlValue = (parsed.queryItems?.first { $0.name == "url" }?.value) else { return }
+
+      guard let urlValue = (parsed.queryItems?.first { $0.name == "url" }?.value) else {
+        Logger.log("No parameter \"url\" for weblink")
+        return
+      }
+      Logger.log("Got weblink, url=\(urlValue)")
       PlayerCore.active.openURLString(urlValue)
     }
   }
@@ -341,6 +341,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   // MARK: - Menu actions
 
   @IBAction func openFile(_ sender: AnyObject) {
+    Logger.log("Menu - Open file")
     let panel = NSOpenPanel()
     panel.title = NSLocalizedString("alert.choose_media_file.title", comment: "Choose Media File")
     panel.canCreateDirectories = false
@@ -355,13 +356,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       }
       let isAlternative = (sender as? NSMenuItem)?.tag == AlternativeMenuItemTag
       let playerCore = PlayerCore.activeOrNewForMenuAction(isAlternative: isAlternative)
-      if let openedFileCount = playerCore.openURLs(panel.urls), openedFileCount == 0 {
+      if playerCore.openURLs(panel.urls) == 0 {
         Utility.showAlert("nothing_to_open")
       }
     }
   }
 
   @IBAction func openURL(_ sender: AnyObject) {
+    Logger.log("Menu - Open URL")
     let panel = NSAlert()
     panel.messageText = NSLocalizedString("alert.open_url.title", comment: "Open URL")
     panel.informativeText = NSLocalizedString("alert.open_url.message", comment: "Please enter the URL:")
@@ -374,7 +376,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     if response == .alertFirstButtonReturn {
       if let url = inputViewController.url {
         let playerCore = PlayerCore.activeOrNewForMenuAction(isAlternative: sender.tag == AlternativeMenuItemTag)
-        playerCore.openURL(url, isNetworkResource: true)
+        playerCore.openURL(url)
       } else {
         Utility.showAlert("wrong_url_format")
       }
@@ -430,8 +432,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     NSWorkspace.shared.open(URL(string: AppData.websiteLink)!)
   }
 
-  @IBAction func setSelfAsDefaultAction(_ sender: AnyObject) {
-    Utility.setSelfAsDefaultForAllFileTypes()
+  private func registerUserDefaultValues() {
+    UserDefaults.standard.register(defaults: [String: Any](uniqueKeysWithValues: Preference.defaultPreference.map { ($0.0.rawValue, $0.1) }))
   }
 
 }
@@ -482,7 +484,7 @@ struct CommandLineStatus {
   }
 }
 
-@available(OSX 10.13, *)
+@available(macOS 10.13, *)
 class RemoteCommandController {
   static let remoteCommand = MPRemoteCommandCenter.shared()
 
@@ -506,11 +508,11 @@ class RemoteCommandController {
       return .success
     }
     remoteCommand.nextTrackCommand.addTarget { _ in
-      PlayerCore.lastActive.navigateInPlaylist(nextOrPrev: true)
+      PlayerCore.lastActive.navigateInPlaylist(nextMedia: true)
       return .success
     }
     remoteCommand.previousTrackCommand.addTarget { _ in
-      PlayerCore.lastActive.navigateInPlaylist(nextOrPrev: false)
+      PlayerCore.lastActive.navigateInPlaylist(nextMedia: false)
       return .success
     }
     remoteCommand.changeRepeatModeCommand.addTarget { _ in

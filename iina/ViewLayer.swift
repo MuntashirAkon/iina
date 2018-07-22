@@ -11,10 +11,10 @@ import OpenGL.GL
 import OpenGL.GL3
 
 
-fileprivate func mpvGetOpenGL(_ ctx: UnsafeMutableRawPointer?, _ name: UnsafePointer<Int8>?) -> UnsafeMutableRawPointer? {
+fileprivate func mpvGetOpenGL(_ ctx: UnsafeMutableRawPointer?, _ name: UnsafePointer<CChar>?) -> UnsafeMutableRawPointer? {
   let symbolName: CFString = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingASCII);
-  guard let addr = CFBundleGetFunctionPointerForName(CFBundleGetBundleWithIdentifier(CFStringCreateCopy(kCFAllocatorDefault, "com.apple.opengl" as CFString!)), symbolName) else {
-    Utility.fatal("Cannot get OpenGL function pointer!")
+  guard let addr = CFBundleGetFunctionPointerForName(CFBundleGetBundleWithIdentifier(CFStringCreateCopy(kCFAllocatorDefault, "com.apple.opengl" as CFString)), symbolName) else {
+    Logger.fatal("Cannot get OpenGL function pointer!")
   }
   return addr
 }
@@ -32,10 +32,11 @@ class ViewLayer: CAOpenGLLayer {
 
   weak var videoView: VideoView!
 
-  lazy var mpvGLQueue: DispatchQueue = DispatchQueue(label: "com.colliderli.iina.mpvgl")
+  lazy var mpvGLQueue = DispatchQueue(label: "com.colliderli.iina.mpvgl", qos: .userInteractive)
 
   override init() {
     super.init()
+
     isOpaque = true
     isAsynchronous = false
 
@@ -102,7 +103,7 @@ class ViewLayer: CAOpenGLLayer {
       CGLChoosePixelFormat(attributes2, &pix, &npix)
     }
 
-    Utility.assert(pix != nil, "Cannot create OpenGL pixel format!")
+    Logger.ensure(pix != nil, "Cannot create OpenGL pixel format!")
 
     return pix!
   }
